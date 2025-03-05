@@ -1,0 +1,127 @@
+# ------------------------------------------------------------------------------
+#          ---        
+#        / o o \    Project:  GLM Prior
+#        V\ Y /V    BEAST2 simulation and inference snakemake workflow 
+#    (\   / - \     with ReMASTER 
+#     )) /    |     
+#     ((/__) ||     Code by Ceci VA 
+# ------------------------------------------------------------------------------
+
+from Bio import Phylo
+import pandas as pd
+configfile: "config/config.yaml"
+configfile: "config/analyses.yaml" 
+
+
+def _get_analysis_param(wildcards, stage, param):
+    if stage == "inference" :
+        return config["analyses"][stage][wildcards.inference].get(param, config["beast"].get(param))
+    if stage == "simulation":
+        return config["analyses"][stage][wildcards.simulation].get(param, config["beast"].get(param))
+
+
+MAX_NSIMS = 1
+PROJECTS = config["run"].keys()
+all_files = []
+for project in PROJECTS:
+    analyses_sim = config["run"][project]["simulation"]
+    for simulation in analyses_sim:
+        n_sims = int(config["analyses"]["simulation"][simulation]["xml_params"].get("n_sims"))
+        if n_sims > MAX_NSIMS: MAX_NSIMS = n_sims
+        sims = range(1, int(n_sims) + 1)
+        # all_files += expand("results/" + project + "/bats/" + simulation + ".{n}.bats", n = sims) 
+        analyses_inf = config["run"][project]["inference"]
+        for inference in analyses_inf:
+            chains = config["analyses"]["inference"][inference].get("chains", config["beast"].get("chains")) 
+            all_files += expand("results/" + project + "/inference/" + simulation + "." + inference + ".{n}" + ".{seed}.log", n = sims, seed = range(1, int(chains) + 1))
+
+# print(all_files)
+
+rule all:
+    input:
+        all_files
+
+rule simulate:
+    input:
+        xml_sim = lambda wildcards: _get_analysis_param(wildcards, "simulation", "xml"), 
+    output:
+        trees = "results/{project}/sim/{simulation}.trees"
+    params:
+        seed = 24,
+        beast_command = lambda wildcards: _get_analysis_param(wildcards, "simulation", "command_sim"), 
+        action = lambda wildcards: _get_analysis_param(wildcards, "simulation", "action"),
+        xml_params = lambda wildcards: str(_get_analysis_param(wildcards, "simulation", "xml_params")).replace(":", "=").replace(
+            "{", "\"").replace("}", "\"").replace(
+            "[", "{").replace("]", "}").replace(" ", "").replace("'", ""),
+        file_name = lambda wildcards: "results/" + wildcards.project + "/sim/" + wildcards.simulation
+    shell:
+        """
+        {params.beast_command} \
+        -D {params.xml_params} \
+        -D file_name={params.file_name} \
+        -seed {params.seed} \
+        -statefile {params.file_name}.state \
+        -{params.action} {input.xml_sim} 
+        """
+
+rule split_trees:
+    input:
+        trees = rules.simulate.output.trees
+    output:
+        tree = expand("results/{{project}}/sim/{{simulation}}.{n}.tree", n = range(1, MAX_NSIMS + 1)),
+        treedata = expand("results/{{project}}/sim/{{simulation}}.{n}.tsv", n = range(1, MAX_NSIMS + 1))
+    params:
+        out_file = "results/{project}/sim/{simulation}."
+    script:
+        "scripts/split_trees.R"
+
+# rule permute:
+#     input:
+#         tree = "results/{project}/sim/{simulation}.{n}.tree"
+#     output:
+#         tree = "results/{project}/sim/{simulation}_permuted.{n}.tree" 
+#     script:
+#         "scripts/permute_typedtree.R"
+
+# ruleorder: permute > split_trees
+
+rule inference:
+    input:
+        xml_inf = lambda wildcards: _get_analysis_param(wildcards, "inference", "xml"), 
+        tree =  "results/{project}/sim/{simulation}.{n}.tree",
+        # trees = "results/{project}/sim/{simulation}.trees"
+        # treedata = "results/{project}/sim/{simulation}.{n}.tsv"
+    output:
+        trace = "results/{project}/inference/{simulation}.{inference}.{n}.{seed}.log"
+    params:
+        # mrs = lambda wildcards, input: float('%.10f'%(max([float(clade.comment[6:-13]) for clade in Phylo.read(input.tree, "newick").get_terminals()]))),
+        # seq_ratio = lambda wildcards, input: ([clade.comment[-5:len(clade.comment)] for clade in Phylo.read(input.tree, "newick").get_terminals()]).count("type1") / ([clade.comment[-5:len(clade.comment)] for clade in Phylo.read(input.tree, "newick").get_terminals()]).count("type2"),
+        # mrs = lambda wildcards, input: float('%.10f'%(max(pd.read_csv(input.treedata, delimiter="\t")["time"]))),
+        # seq_ratio = lambda wildcards, input: pd.read_csv(input.treedata, delimiter="\t")["type"].value_counts().loc["type1"] / pd.read_csv(input.treedata, delimiter="\t")["type"].value_counts().loc["type2"], 
+        idx = lambda wildcards: int(wildcards.n) - 1,
+        beast_command = lambda wildcards: _get_analysis_param(wildcards, "inference", "command_inf"), 
+        action = lambda wildcards: _get_analysis_param(wildcards, "inference", "action"),
+        chain_length = lambda wildcards: _get_analysis_param(wildcards, "inference", "chain_length"),
+        log_every = lambda wildcards: _get_analysis_param(wildcards, "inference", "log_every"),
+        xml_params = lambda wildcards: str(_get_analysis_param(wildcards, "inference", "xml_params")).replace(":", "=").replace(
+            "{", "\"").replace("}", "\"").replace(
+            "[", "{").replace("]", "}").replace(" ", "").replace("'", ""),
+        file_name = lambda wildcards: "results/" + wildcards.project + "/inference/" + wildcards.simulation + "." + wildcards.inference + "." + wildcards.n +"." + wildcards.seed
+    threads:
+        lambda wildcards: _get_analysis_param(wildcards, "inference", "threads"),
+    resources:
+        runtime = lambda wildcards: _get_analysis_param(wildcards, "inference", "time"),
+        mem_per_cpu = lambda wildcards: _get_analysis_param(wildcards,  "inference", "mem_mb")
+    shell:
+        """
+        {params.beast_command} \
+        -D tree_file={input.tree} \
+        -D {params.xml_params} \
+        -D chain_length={params.chain_length} \
+        -D log_every={params.log_every} \
+        -D file_name={params.file_name} \
+        -seed {wildcards.seed} \
+        -statefile {params.file_name}.state \
+        -{params.action} {input.xml_inf} 
+        """
+

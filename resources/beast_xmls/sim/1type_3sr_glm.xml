@@ -1,0 +1,67 @@
+<!-- Simulation MTBD single type 3 sampling rates with GLM 2 predictors-->
+
+<beast version="2.0" 
+    namespace="beast.base.inference.parameter
+               :beast.base.inference
+               :remaster
+               :feast.expressions
+               :feast.parameter
+               :glmprior.util">
+  
+<parameter id="birthRate" value="$(birth_rate)"/>
+
+<parameter id="deathRate" spec="RealParameter" value="$(death_rate)"/>
+
+
+<parameter id="samplingRate" spec="RealParameterFromFunction"> 
+    <function id="samplingRateGLM" spec="GLMLogLinear" transform="false">
+        <predictor id="predictorGLM1" spec="ExpCalculator" value="$(glm_pred1)"/> 
+        <predictor id="predictorGLM2" spec="ExpCalculator" value="$(glm_pred2)"/>
+        <!-- You could also read the predictors from a csv file using feast RealParameterFromXSV class -->
+
+        <parameter id="coefficientsGLM" spec="RealParameterFromFunction" name="coefficients">
+            <function spec="ExpCalculator" value="$(glm_coefs)"/>
+        </parameter>
+        <parameter id="scaleFactorGLM" spec="RealParameter" name="scaleFactor" value="$(glm_scale)"/>
+        <parameter id="indicatorGLM" spec="BooleanParameter" name="indicators" value="1 1"/>
+    </function>
+</parameter>
+
+
+  <run spec="Simulator" nSims="$(n_sims)">
+        <simulate spec="SimulatedTree" id="tree">
+            <trajectory spec="StochasticTrajectory" id="traj"
+                maxTime="$(sim_time)"
+                mustHave="sample&gt;$(min_samples)">
+                        
+                <population spec="RealParameter" id="X" value="1"/>
+                
+                <samplePopulation spec="RealParameter" id="sample" value="0"/>
+
+                <reaction spec="Reaction" id="b" rate="@birthRate"> X -> 2X </reaction>
+                <reaction spec="Reaction" id="d" rate="@deathRate"> X -> 0 </reaction>
+                <reaction spec="Reaction" id="s" rate="@samplingRate"  changeTimes="$(sampling_changetime1) $(sampling_changetime2)"> X -> sample </reaction>
+
+            </trajectory>
+        </simulate>
+
+        <logger spec="Logger" mode="tree" fileName="$(file_name).trees">
+            <log spec="TypedTreeLogger" tree="@tree" removeSingletonNodes="true" noLabels="true"/>
+        </logger>
+
+        <logger spec="Logger">
+            <log spec="beast.base.evolution.tree.TreeStatLogger" tree="@tree"/>
+        </logger>
+
+        <logger id="tracelog" spec="Logger" fileName="$(file_name).log">
+            <log idref="birthRate"/>
+            <log idref="deathRate"/>
+            <log idref="samplingRate"/>
+            <log idref="predictorGLM1"/>
+            <log idref="predictorGLM2"/>
+            <log idref="coefficientsGLM"/>
+            <log idref="scaleFactorGLM"/>
+        </logger>
+
+    </run>
+</beast>

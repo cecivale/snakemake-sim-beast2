@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<beast namespace="beast.base.inference
+    :beast.base.inference.parameter
+    :beast.base.evolution.branchratemodel
+    :beast.base.evolution.substitutionmodel
+    :beast.base.evolution.sitemodel
+    :beast.base.evolution.tree.coalescent
+    :beast.base.evolution.tree
+    :beast.base.evolution.operator
+    :beast.base.evolution.likelihood
+    :beast.base.evolution.alignment
+    :beast.base.evolution.operator.kernel
+    :beast.base.inference.operator.kernel
+    :beast.base.inference.operator
+    :beast.base.inference.operator
+    :beast.base.math.distributions
+    :beast.base.evolution
+    :bdmmprime.util.operators
+    :bdmmprime.util.priors
+    :bdmmprime.distribution
+    :bdmmprime.parameterization
+    :bdmmprime.mapping
+    :feast
+    :feast.parameter
+    :feast.fileio
+    :feast.function
+    :feast.expressions
+    :glmprior.util"
+    required="" version="2.7">
+
+
+<!-- Map elements -->
+    <map name="Uniform" >beast.base.inference.distribution.Uniform</map>
+    <map name="Exponential" >beast.base.inference.distribution.Exponential</map>
+    <map name="LogNormal" >beast.base.inference.distribution.LogNormalDistributionModel</map>
+    <map name="Normal" >beast.base.inference.distribution.Normal</map>
+    <map name="Beta" >beast.base.inference.distribution.Beta</map>
+    <map name="Gamma" >beast.base.inference.distribution.Gamma</map>
+    <map name="LaplaceDistribution" >beast.base.inference.distribution.LaplaceDistribution</map>
+    <map name="prior" >beast.base.inference.distribution.Prior</map>
+    <map name="InverseGamma" >beast.base.inference.distribution.InverseGamma</map>
+    <map name="OneOnX" >beast.base.inference.distribution.OneOnX</map>
+
+
+<!-- Alignment -->
+    <tree id="treeBDMMPrime" spec="TreeFromNewickFile" 
+           fileName="$(tree_file)" IsLabelledNewick="true" 
+           adjustTipHeights='false' offset="0"/>
+
+    <taxonset id="taxonSet" spec="TaxonSetFromTree" tree="@treeBDMMPrime"/>
+
+    <typeSet id="typeSetBDMMPrime" spec="TypeSet">
+        <typeTraitSet id="typeTraitSet" spec="TraitSetFromTaxonSet" 
+            traitname="type" 
+            delimiter="|" 
+            takeGroup="1"
+            taxa="@taxonSet"/> 
+    </typeSet>
+
+    <trait id="dateTrait" spec="TraitSetFromTaxonSet" 
+        traitname="time"
+        delimiter="|" 
+        takeGroup="2"
+        taxa="@taxonSet"/> 
+
+
+ <!-- BDMMPrime Population Model -->
+
+    <processLength id="originBDMMPrime" spec="RealParameter">10.0</processLength>
+
+    <birthRate id="birthRateSV" spec="SkylineVectorParameter"  
+               timesAreAges="true" processLength="@originBDMMPrime"
+               typeSet="@typeSetBDMMPrime">
+        <skylineValues id="birthRateValues" spec="RealParameter" value="60"/>
+    </birthRate>
+
+
+    <deathRate id="deathRateSV" spec="SkylineVectorParameter"  
+               timesAreAges="true" processLength="@originBDMMPrime"
+               typeSet="@typeSetBDMMPrime">
+        <skylineValues id="deathRateValues" spec="RealParameter" value="30"/>
+    </deathRate>
+
+    <samplingRate id="samplingRateSV" spec="SkylineVectorParameter" 
+                  timesAreAges="true" processLength="@originBDMMPrime" typeSet="@typeSetBDMMPrime">
+        <skylineValues id="samplingRateValues" spec="GLMLogLinear" transform="false">
+            <predictor id="predictorGLM1" spec="ExpCalculator" value="$(glm_pred1)"/> 
+            <predictor id="predictorGLM2" spec="ExpCalculator" value="$(glm_pred2)"/>
+            
+            <parameter id="coefficientsGLM" spec="RealParameter" name="coefficients" value="0.1 0.1"/>
+            <parameter id="scaleFactorGLM" spec="RealParameter" name="scaleFactor" value="0.1"/>
+            <parameter id="indicatorGLM" spec="BooleanParameter" name="indicators" value="1 1"/>
+        </skylineValues>
+            
+        <changeTimes id="samplingRateChangeTimes" spec="RealParameterFromFunction">
+                <function spec="ExpCalculator" value="{mrs - $(sampling_changetime2),mrs - $(sampling_changetime1)}">
+                    <arg id="mrs" spec="ExpCalculator" value="max(taxonTimes)">
+                         <arg id="taxonTimes" spec="feast.function.TraitSetAsFunction" traitSet="@dateTrait"/>
+                    </arg>
+            </function>
+        </changeTimes>
+    </samplingRate>
+
+    <removalProb id="removalProbSV" spec="SkylineVectorParameter" skylineValues="1.0"
+        processLength="@originBDMMPrime" typeSet="@typeSetBDMMPrime"/>
+
+    <startTypePriorProbs id="typeFrequencies" spec="RealParameter" 
+        estimate="false" lower="0.0" upper="1.0" value="1.0"/>
+
+<!-- MCMC -->
+    <run id="mcmc" spec="MCMC" sampleFromPrior='false' chainLength="$(chain_length)" numInitializationAttempts="100">
+
+    <!-- State -->
+<state id="state" spec="State" storeEvery="5000">
+            
+
+            <stateNode idref="originBDMMPrime"/>
+            <stateNode idref="coefficientsGLM"/>
+            <stateNode idref="scaleFactorGLM"/>
+            <stateNode idref="indicatorGLM"/>
+            <!-- <stateNode ifref="birthRateValues"/> -->
+            <!-- <stateNode ifref="deathRateValues"/> -->
+
+        </state> 
+    
+
+    <!-- Posterior Distribution -->
+        <distribution id="posterior" spec="CompoundDistribution">
+
+            <!-- Prior distribution -->
+            <distribution id="prior" spec="CompoundDistribution">
+
+                <!-- BDMM-Prime tree prior distribution -->
+                <distribution id="BDMMPrime" spec="BirthDeathMigrationDistribution" 
+                              tree="@treeBDMMPrime"
+                              conditionOnSurvival="true"
+                              finalSampleOffset="0.0"
+                              typeTraitSet="@typeTraitSet"
+                              startTypePriorProbs="@typeFrequencies">
+
+                    <!-- Parameterization BDMM-Prime -->
+                    <parameterization id="BDMMPrimeParameterization" spec="CanonicalParameterization" 
+                                      processLength="@originBDMMPrime"
+                                      birthRate="@birthRateSV"
+                                      samplingRate="@samplingRateSV"
+                                      deathRate="@deathRateSV"
+                                      removalProb="@removalProbSV"
+                                      typeSet="@typeSetBDMMPrime"/>
+
+                </distribution> 
+
+
+            <!-- Priors on parameters -->
+            <!-- BDMMPrime parameters priors -->
+
+                <prior id="originBDMMPrimePrior" name="distribution" x="@originBDMMPrime">
+                    <LogNormal name="distr" M="-0.6" S="0.3"/> 
+                </prior>
+
+                <prior id="coefficientsPrior" name="distribution" x="@coefficientsGLM">
+                    <Normal name="distr">
+                        <parameter spec="RealParameter" estimate="false" name="mean">0.0</parameter>
+                        <parameter spec="RealParameter" estimate="false" name="sigma">2.0</parameter>
+                    </Normal>
+                </prior>
+
+                <prior id="scaleFactorPrior" name="distribution" x="@scaleFactorGLM">
+                    <LogNormal name="distr">
+                        <parameter spec="RealParameter" estimate="false" name="M">0.0</parameter>
+                        <parameter spec="RealParameter" estimate="false" name="S">0.8</parameter>
+                    </LogNormal>
+                </prior>
+
+<!--                 <distribution id="birthRatePrior" spec="SmartZeroExcludingPrior" 
+                            x="@birthRateValues">
+                    <LogNormal name="distr" M="36" S="081" meanInRealSpace="true"/> 
+                </distribution>
+
+                <distribution id="deathRatePrior" spec="SmartZeroExcludingPrior" 
+                            x="@birthRateValues">
+                    <LogNormal name="distr" M="36" S="081" meanInRealSpace="true"/> 
+                </distribution> -->
+
+            </distribution>
+        </distribution>
+
+
+    <!-- Operators -->
+
+        <!-- Population model operators -->
+        <operator id="originBDMMPrimeScaler" spec="ScaleOperator" parameter="@originBDMMPrime" 
+            scaleFactor="0.25" weight="5.0" />
+<!-- 
+        <operator id="birthRateScaler" spec="ScaleOperator" parameter="@birthRateValues" 
+            weight="10.0" />
+        <operator id="birthRateScalerAll" spec="ScaleOperator" parameter="@birthRateValues"    weight="10.0" scaleAll="true" />
+
+ -->
+        <operator id="scaleFactorGLMScaler" spec="BactrianScaleOperator" parameter="@scaleFactorGLM" 
+            weight="10.0" />
+
+        <operator id="coefficientsGLMScaler" spec="BactrianRandomWalkOperator" parameter="@coefficientsGLM" 
+            weight="10.0"/>
+
+        <operator id="indicatorParamGLMFlip" spec="BitFlipOperator" parameter="@indicatorGLM" 
+            weight="10.0" uniform="false" />
+
+<!--         <operator id="JointSwapGLM" spec="JointOperator" weight="5.0">
+            <operator id="indicatorSwap" spec="ExtendedSwapOperator" boolparameter="@indicatorGLM" 
+            weight="5.0" />
+            <operator id="coeffGLMSwap" spec="ExtendedSwapOperator" parameter="@coefficientsGLM" 
+            weight="5.0"/>
+        </operator>
+ -->
+        <!-- <operator id="indicatorParamGLMjointSwap" spec="ExtendedSwapOperator" parameter="@coefficientsGLM" filter="@indicatorGLM" 
+            weight="10.0"/> -->
+
+        <!-- <operator id="errorTermGLMScaler" spec="BactrianScaleOperator" parameter="@errorTermGLM" 
+            weight="5.0" upper="20.0"/> -->
+
+    <!-- Loggers -->
+        <logger id="tracelog" spec="Logger" fileName="$(file_name).log" logEvery="$(log_every)" model="@posterior" sanitiseHeaders="true" sort="smart">
+            <log idref="posterior"/>
+            <log idref="prior"/>
+            <log idref="originBDMMPrime"/>
+            <log idref="birthRateSV"/>
+            <log idref="deathRateSV"/>
+            <log idref="samplingRateSV"/>
+            <log idref="coefficientsGLM"/>
+            <log idref="scaleFactorGLM"/>
+            <log idref="indicatorGLM"/>
+            <log id="coefbyindGLM" spec="ExpCalculator" value="coefficientsGLM*indicatorGLM" useCaching="false">
+                <arg idref="coefficientsGLM"/>
+                <arg idref="indicatorGLM"/>
+            </log>
+            <log id="samplingbyindGLM" spec="ExpCalculator" value="samplingRateValues*indicatorGLM" useCaching="false">
+                <arg idref="samplingRateValues"/>
+                <arg idref="indicatorGLM"/>
+            </log>
+            <log idref="removalProbSV"/>
+        </logger>
+
+        <logger id="screenlog" spec="Logger" logEvery="$(log_every)">
+            <log idref="posterior"/>
+            <log arg="@posterior" id="ESS_posterior" spec="util.ESS"/>
+            <log arg="@prior" id="ESS_prior" spec="util.ESS"/>
+            <log idref="BDMMPrime"/>
+            <log arg="@BDMMPrime" id="ESS_BDMMPrime" spec="util.ESS"/>
+        </logger>
+
+        <logger id="treelog" spec="Logger" fileName="$(file_name).trees" logEvery="$(log_every)" mode="tree">
+            <log id="TreeWithMetaDataLogger" spec="TreeWithMetaDataLogger" tree="@treeBDMMPrime"/>
+        </logger>
+
+        <operatorschedule id="OperatorSchedule" spec="OperatorSchedule"/>
+
+    </run>
+
+</beast>

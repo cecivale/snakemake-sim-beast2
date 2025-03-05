@@ -1,0 +1,33 @@
+analyses:
+  simulation:
+    singletype_3sr_glm:
+      xml: resources/beast_xmls/sim/1type_3sr_glm.xml
+      xml_params:
+        sim_time: 3
+        birth_rate: 40
+        death_rate: 36.5
+        glm_pred1: [0.7,0.4,-0.1]
+        glm_pred2: [-4,-1,2]
+        glm_coefs: [3,1]
+        glm_scale: 1
+        sampling_changetime1: 1
+        sampling_changetime2: 2
+        n_sims: 1
+        n0: 1.0
+        min_samples: 10
+
+  inference:
+    glm_3sr:
+      xml: resources/beast_xmls/inference/glm_3sr.xml
+      xml_params:
+        sampling_changetime1: 0.3
+        sampling_changetime2: 0.6
+        glm_pred1: [-0.1,0.4,0.7]
+        glm_pred2: [2,-1,-4]
+
+    nn_3sr: # example
+      xml: resources/beast_xmls/inference/nn_3sr.xml
+      xml_params:
+        sampling_changetime1: 0.3
+        sampling_changetime2: 0.6
+
