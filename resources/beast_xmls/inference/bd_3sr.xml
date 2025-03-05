@@ -83,17 +83,22 @@
 
     <samplingRate id="samplingRateSV" spec="SkylineVectorParameter" 
                   timesAreAges="false" processLength="@originBDMMPrime" typeSet="@typeSetBDMMPrime">
-        <skylineValues id="samplingRateValues" spec="GLMLogLinear" transform="false">
-            <predictor id="predictorGLM1" spec="ExpCalculator" value="$(glm_pred1)"/> 
-            <predictor id="predictorGLM2" spec="ExpCalculator" value="$(glm_pred2)"/>
-            <predictor id="predictorGLM3" spec="RealParameter" value="7.0 5.0 9.0"/>
+        <skylineValues id="samplingRateValues" spec="RealParameter" value="1 1 1"/>
             
-            <parameter id="coefficientsGLM" spec="RealParameter" name="coefficients" value="0.1 0.1 0.1"/>
-            <parameter id="scaleFactorGLM" spec="RealParameter" name="scaleFactor" value="1"/>
-            <parameter id="indicatorGLM" spec="BooleanParameter" name="indicators" value="1 1 1"/>
-        </skylineValues>
-            
+        <!-- <changeTimes id="samplingRateChangeTimes" spec="RealParameterFromFunction">
+                <function spec="ExpCalculator" value="{mrs - $(sampling_changetime2),mrs - $(sampling_changetime1)}">
+                    <arg id="mrs" spec="ExpCalculator" value="max(taxonTimes)">
+                         <arg id="taxonTimes" spec="feast.function.TraitSetAsFunction" traitSet="@dateTrait"/>
+                    </arg>
+            </function> -->
+        <!-- </changeTimes> -->
         <changeTimes id="samplingRateChangeTimes" spec="RealParameter" value="$(sampling_changetime1)  $(sampling_changetime2)"/>
+<!--             <function spec="ExpCalculator" value="{mrs - $(sampling_changetime2),mrs - $(sampling_changetime1)}">
+                <arg id="mrs" spec="ExpCalculator" value="max(taxonTimes)">
+                     <arg id="taxonTimes" spec="feast.function.TraitSetAsFunction" traitSet="@dateTrait"/>
+                </arg>
+            </function> -->
+        <!-- </changeTimes> -->
     </samplingRate>
 
     <removalProb id="removalProbSV" spec="SkylineVectorParameter" skylineValues="1.0"
@@ -110,9 +115,7 @@
             
 
             <stateNode idref="originBDMMPrime"/>
-            <stateNode idref="coefficientsGLM"/>
-            <stateNode idref="scaleFactorGLM"/>
-            <stateNode idref="indicatorGLM"/>
+            <stateNode idref="samplingRateValues"/>
             <!-- <stateNode ifref="birthRateValues"/> -->
             <!-- <stateNode ifref="deathRateValues"/> -->
 
@@ -152,11 +155,7 @@
                     <LogNormal name="distr" M="1.0" S="1.25"/> 
                 </prior>
 
-                <prior id="coefficientsPrior" name="distribution" x="@coefficientsGLM">
-                    <Normal name="distr" mean="0.0" sigma="4.0"/>
-                </prior>
-
-                <prior id="scaleFactorPrior" name="distribution" x="@scaleFactorGLM">
+                <prior id="samplinRatePrior" name="distribution" x="@samplingRateValues">
                     <LogNormal name="distr"  M="1.0" S="1.25"/>
                 </prior>
 
@@ -185,14 +184,12 @@
         <operator id="birthRateScalerAll" spec="ScaleOperator" parameter="@birthRateValues"    weight="10.0" scaleAll="true" />
 
  -->
-        <operator id="scaleFactorGLMScaler" spec="BactrianScaleOperator" parameter="@scaleFactorGLM" 
+        <operator id="scaleFactorGLMScaler" spec="BactrianScaleOperator" parameter="@samplingRateValues" 
             weight="10.0" />
 
-        <operator id="coefficientsGLMScaler" spec="BactrianRandomWalkOperator" parameter="@coefficientsGLM" 
-            weight="10.0"/>
 
-        <operator id="indicatorParamGLMFlip" spec="BitFlipOperator" parameter="@indicatorGLM" 
-            weight="10.0" uniform="false" />
+<!--         <operator id="indicatorParamGLMFlip" spec="BitFlipOperator" parameter="@indicatorGLM" 
+            weight="10.0" uniform="false" /> -->
 
 <!--         <operator id="JointSwapGLM" spec="JointOperator" weight="5.0">
             <operator id="indicatorSwap" spec="ExtendedSwapOperator" boolparameter="@indicatorGLM" 
@@ -215,13 +212,6 @@
             <log idref="birthRateSV"/>
             <log idref="deathRateSV"/>
             <log idref="samplingRateSV"/>
-            <log idref="coefficientsGLM"/>
-            <log idref="scaleFactorGLM"/>
-            <log idref="indicatorGLM"/>
-            <log id="coefbyindGLM" spec="ExpCalculator" value="coefficientsGLM*indicatorGLM" useCaching="false">
-                <arg idref="coefficientsGLM"/>
-                <arg idref="indicatorGLM"/>
-            </log>
             <log idref="removalProbSV"/>
         </logger>
 

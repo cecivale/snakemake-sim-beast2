@@ -12,6 +12,7 @@ run:
     simulation: 
       - "singletype_3sr_glm"
     inference:
+      # - "bd_3sr"
       - "glm_3sr"
       # - "nn_3sr" # You can have several analyses here and it will run everything
 beast:
