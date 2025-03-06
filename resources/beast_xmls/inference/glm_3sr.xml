@@ -82,10 +82,10 @@
     </deathRate>
 
     <samplingRate id="samplingRateSV" spec="SkylineVectorParameter" 
-                  timesAreAges="false" processLength="@originBDMMPrime" typeSet="@typeSetBDMMPrime">
+                  timesAreAges="true" processLength="@originBDMMPrime" typeSet="@typeSetBDMMPrime">
         <skylineValues id="samplingRateValues" spec="GLMLogLinear" transform="false">
-            <predictor id="predictorGLM1" spec="ExpCalculator" value="$(glm_pred1)"/> 
-            <predictor id="predictorGLM2" spec="ExpCalculator" value="$(glm_pred2)"/>
+            <predictor id="predictorGLM1" spec="ExpCalculator" value="$(glm_pred1)[(len($(glm_pred1))-1):0]"/> 
+            <predictor id="predictorGLM2" spec="ExpCalculator" value="$(glm_pred2)[(len($(glm_pred2))-1):0]"/>
             <predictor id="predictorGLM3" spec="RealParameter" value="7.0 5.0 9.0"/>
             
             <parameter id="coefficientsGLM" spec="RealParameter" name="coefficients" value="0.1 0.1 0.1"/>
@@ -93,7 +93,14 @@
             <parameter id="indicatorGLM" spec="BooleanParameter" name="indicators" value="1 1 1"/>
         </skylineValues>
             
-        <changeTimes id="samplingRateChangeTimes" spec="RealParameter" value="$(sampling_changetime1)  $(sampling_changetime2)"/>
+        <changeTimes id="samplingRateChangeTimes" spec="RealParameterFromFunction">
+            <function spec="ExpCalculator" value="{mrs - $(sampling_changetime2),mrs - $(sampling_changetime1)}">
+                <arg id="mrs" spec="ExpCalculator" value="max(taxonTimes)">
+                     <arg id="taxonTimes" spec="feast.function.TraitSetAsFunction" traitSet="@dateTrait"/>
+                </arg>
+            </function>
+        </changeTimes>
+        
     </samplingRate>
 
     <removalProb id="removalProbSV" spec="SkylineVectorParameter" skylineValues="1.0"
@@ -156,9 +163,9 @@
                     <Normal name="distr" mean="0.0" sigma="4.0"/>
                 </prior>
 
-                <prior id="scaleFactorPrior" name="distribution" x="@scaleFactorGLM">
+<!--                 <prior id="scaleFactorPrior" name="distribution" x="@scaleFactorGLM">
                     <LogNormal name="distr"  M="1.0" S="1.25"/>
-                </prior>
+                </prior> -->
 
 <!--                 <distribution id="birthRatePrior" spec="SmartZeroExcludingPrior" 
                             x="@birthRateValues">
@@ -185,9 +192,9 @@
         <operator id="birthRateScalerAll" spec="ScaleOperator" parameter="@birthRateValues"    weight="10.0" scaleAll="true" />
 
  -->
-        <operator id="scaleFactorGLMScaler" spec="BactrianScaleOperator" parameter="@scaleFactorGLM" 
+<!--         <operator id="scaleFactorGLMScaler" spec="BactrianScaleOperator" parameter="@scaleFactorGLM" 
             weight="10.0" />
-
+ -->
         <operator id="coefficientsGLMScaler" spec="BactrianRandomWalkOperator" parameter="@coefficientsGLM" 
             weight="10.0"/>
 
