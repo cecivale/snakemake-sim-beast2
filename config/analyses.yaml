@@ -16,6 +16,11 @@ analyses:
         n0: 1.0
         min_samples: 10
 
+    glm_vs_nn:
+      xml: resources/beast_xmls/sim/sim_glm_vs_nn.xml
+      xml_params:
+        n_sims: "1"
+
   inference:
     glm_3sr:
       xml: resources/beast_xmls/inference/glm_3sr.xml
@@ -24,6 +29,24 @@ analyses:
         sampling_changetime2: 2
         glm_pred1: [0.7,0.4,-0.1]
         glm_pred2: [-4,-1,2]
+
+    glm_3sr_fixorig:
+      xml: resources/beast_xmls/inference/glm_3sr_fixorig.xml
+      xml_params:
+        sampling_changetime1: 1
+        sampling_changetime2: 2
+        glm_pred1: [0.7,0.4,-0.1]
+        glm_pred2: [-4,-1,2]
+
+
+    glm_vs_nn:
+      xml: resources/beast_xmls/inference/glm_vs_nn.xml
+      xml_params:
+        range: 1
+        # sampling_changetime1: 1
+        # sampling_changetime2: 2
+        # glm_pred1: [0.7,0.4,-0.1]
+        # glm_pred2: [-4,-1,2]
 
     bd_3sr:
       xml: resources/beast_xmls/inference/bd_3sr.xml
