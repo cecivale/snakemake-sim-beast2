@@ -8,24 +8,25 @@
 # ------------------------------------------------------------------------------
 
 run:
-  glm_vs_nn:
-    simulation:
-      - "glm_vs_nn"
-    inference:
-      - "glm_vs_nn"
-  # singletype_3sr_glm:
-  #   simulation: 
-  #     - "singletype_3sr_glm"
+  # glm_vs_nn:
+  #   simulation:
+  #     - "glm_vs_nn"
   #   inference:
-  #     # - "bd_3sr"
-  #     # - "glm_3sr"
-  #     - "glm_3sr_fixorig"
+  #     - "glm_vs_nn"
+  singletype_3sr_glm:
+    simulation: 
+      - "singletype_3sr_glm"
+    inference:
+      # - "bd_3sr"
+      # - "glm_3sr"
+      - "glm_3sr_fixorig"
       # - "nn_3sr" # You can have several analyses here and it will run everything
 
   
 
 beast:
   command_sim: "beast"
+  # command_sim: "java -jar /Users/ceciliav/Tools/beast-code/GLMPrior/out/artifacts/GLMPrior/GLMPrior.jar"
   command_inf: "beast"
   action: "overwrite"
   chains: 1

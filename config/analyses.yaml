@@ -10,11 +10,10 @@ analyses:
         glm_pred2: [-4,-1,2]
         glm_coefs: [3,1]
         glm_scale: 1
-        sampling_changetime1: 1
-        sampling_changetime2: 2
-        n_sims: 1
+        sampling_changetimes: [1,2]
+        n_sims: 10
         n0: 1.0
-        min_samples: 10
+        min_samples: 1
 
     glm_vs_nn:
       xml: resources/beast_xmls/sim/sim_glm_vs_nn.xml
